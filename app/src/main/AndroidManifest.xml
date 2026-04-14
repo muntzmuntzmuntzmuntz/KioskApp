@@ -1,0 +1,56 @@
+<manifest package="com.kiosk.app"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+
+    <application android:theme="@style/Theme.Kiosk">
+        <activity android:name=".ui.launcher.LauncherActivity"
+            android:exported="true"
+            android:lockTaskMode="if_whitelisted"
+            >
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+        </activity>
+
+        <activity android:name=".ui.locked.LockedActivity"/>
+        <activity android:name=".ui.pin.PinUnlockActivity"/>
+        <activity android:name=".ui.admin.AdminActivity"/>
+
+        <receiver android:name=".core.system.ChargingReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED"/>
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".core.kiosk.DeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_receiver"/>
+        </receiver>
+
+    </application>
+    <queries>
+
+        <!-- Chrome -->
+        <package android:name="com.android.chrome" />
+
+        <!-- YouTube -->
+        <package android:name="com.google.android.youtube" />
+
+        <!-- Allow querying launchable apps -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+
+    </queries>
+</manifest>

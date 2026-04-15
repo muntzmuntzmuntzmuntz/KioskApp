@@ -22,7 +22,7 @@ class LauncherAdapter(
 
     inner class VH(val card: CardView) : RecyclerView.ViewHolder(card) {
         val icon: ImageView = card.findViewWithTag("icon")
-        val name: TextView = card.findViewWithTag("name")
+//        val name: TextView = card.findViewWithTag("name")
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -50,7 +50,7 @@ class LauncherAdapter(
         }
 
         layout.addView(icon)
-        layout.addView(name)
+//        layout.addView(name)
         card.addView(layout)
 
         return VH(card)
@@ -60,8 +60,7 @@ class LauncherAdapter(
         val app = getItem(position)
 
         holder.icon.setImageDrawable(app.icon)
-        holder.name.text = app.name
-
+//        holder.name.text = app.name
         holder.card.setOnClickListener {
             onClick(app)
         }

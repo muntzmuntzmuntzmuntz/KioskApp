@@ -17,6 +17,8 @@ import com.kiosk.app.core.system.PowerEventManager
 import com.kiosk.app.ui.base.BaseActivity
 import com.kiosk.app.ui.locked.LockedActivity
 import com.kiosk.app.ui.pin.PinUnlockActivity
+import androidx.core.graphics.toColorInt
+import java.io.File
 
 class LauncherActivity : BaseActivity() {
 
@@ -24,6 +26,7 @@ class LauncherActivity : BaseActivity() {
     private lateinit var adapter: LauncherAdapter
     private lateinit var repo: AppRepository
     private lateinit var powerManager: PowerEventManager
+    lateinit var content: FrameLayout
 
     private var tapCount = 0
 
@@ -35,7 +38,6 @@ class LauncherActivity : BaseActivity() {
             finish()
             return
         }
-
         repo = AppRepository(this)
 
         powerManager = PowerEventManager(this, object : PowerEventManager.Listener {
@@ -59,7 +61,7 @@ class LauncherActivity : BaseActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "Kiosk"
+            text = "Cebu Piso Tab"
             textSize = 20f
             setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -75,11 +77,21 @@ class LauncherActivity : BaseActivity() {
             }
         }
 
+//        val closeBtn = ImageView(this).apply {
+//            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+//            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
+//
+//            setOnClickListener {
+//                closeApp()
+//            }
+//        }
+
         header.addView(title)
         header.addView(settings)
+//        header.addView(closeBtn)
 
         // ================= CONTENT =================
-        val content = FrameLayout(this).apply {
+        content = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
@@ -101,7 +113,7 @@ class LauncherActivity : BaseActivity() {
 
         if (apps.isEmpty()) {
             val empty = TextView(this).apply {
-                text = "No apps selected"
+                text = "No apps available. Please contact Administrator."
                 textSize = 18f
                 setTextColor(Color.GRAY)
                 gravity = Gravity.CENTER
@@ -140,9 +152,8 @@ class LauncherActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
 
-        if (!isInLockTaskMode()) {
-            startLockTask()
-        }
+        enableKioskMode()
+        applyLauncherBackground()
     }
 
     // ================= SETTINGS MODAL =================
@@ -318,8 +329,47 @@ class LauncherActivity : BaseActivity() {
         return (value * resources.displayMetrics.density).toInt()
     }
 
+    private fun enableKioskMode() {
+        val dpm = getSystemService(android.app.admin.DevicePolicyManager::class.java)
+        val admin = android.content.ComponentName(
+            this,
+            com.kiosk.app.core.admin.MyDeviceAdminReceiver::class.java
+        )
+
+        // 🔥 get saved apps
+        val prefs = com.kiosk.app.core.data.PrefsManager(this)
+        val enabledApps = prefs.getEnabledApps()
+
+        val allowed = mutableListOf(packageName)
+        allowed.addAll(enabledApps)
+
+        dpm.setLockTaskPackages(admin, allowed.toTypedArray())
+
+        if (!isInLockTaskMode()) {
+            startLockTask()
+        }
+    }
+
     private fun isInLockTaskMode(): Boolean {
         val am = getSystemService(android.app.ActivityManager::class.java)
         return am.lockTaskModeState != android.app.ActivityManager.LOCK_TASK_MODE_NONE
+    }
+
+    private fun applyLauncherBackground() {
+
+        val file = File(filesDir, "launcher_bg.jpg")
+
+        if (file.exists()) {
+            val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+            val drawable = android.graphics.drawable.BitmapDrawable(resources, bitmap)
+            content.background = drawable
+        } else {
+            content.setBackgroundColor(Color.parseColor("#F5F7FA"))
+        }
+    }
+
+    private fun closeApp() {
+        finishAffinity()
+        android.os.Process.killProcess(android.os.Process.myPid())
     }
 }

@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
+import com.kiosk.app.core.data.PrefsManager
 import com.kiosk.app.ui.admin.AdminActivity
 import com.kiosk.app.ui.base.BaseActivity
 import com.kiosk.app.ui.launcher.LauncherActivity
@@ -14,12 +15,13 @@ import com.kiosk.app.ui.launcher.LauncherActivity
 class PinUnlockActivity : BaseActivity() {
 
     private var input = ""
-    private val correctPin = "1234"
-
+    private var correctPin = "1234"
     private lateinit var display: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        correctPin = PrefsManager(this).getPin().toString()
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -124,6 +126,7 @@ class PinUnlockActivity : BaseActivity() {
                         } else {
                             input = ""
                             updateDisplay()
+                            Toast.makeText(context, "Wrong PIN. Please contact Administrator.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

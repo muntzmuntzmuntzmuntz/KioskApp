@@ -25,23 +25,9 @@ class AppRepository(private val context: Context) {
                 icon = icon,
                 enabled = false
             )
-        }.sortedBy { it.name.lowercase() }
+        }.filter { it.packageName != context.packageName }
+            .sortedBy { it.name.lowercase() }
     }
-
-//    fun getAllApps(): List<AppItem> {
-//        val pm = context.packageManager
-//
-//        return pm.getInstalledApplications(0).mapNotNull {
-//            val launchIntent = pm.getLaunchIntentForPackage(it.packageName)
-//            if (launchIntent != null) {
-//                AppItem(
-//                    name = pm.getApplicationLabel(it).toString(),
-//                    packageName = it.packageName,
-//                    icon = pm.getApplicationIcon(it)
-//                )
-//            } else null
-//        }.sortedBy { it.name }
-//    }
 
     fun getFilteredApps(): List<AppItem> {
         val prefs = PrefsManager(context)

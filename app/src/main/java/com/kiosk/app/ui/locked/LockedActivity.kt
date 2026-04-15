@@ -4,11 +4,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -20,12 +20,19 @@ import com.kiosk.app.ui.launcher.LauncherActivity
 class LockedActivity : BaseActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
+    private var countDownTimer: android.os.CountDownTimer? = null
+    private var isTimerRunning = false
+    private var hadReset = false;
 
     private val checkPowerRunnable = object : Runnable {
         override fun run() {
             if (isCharging()) {
-                goToLauncher()
-                return
+                stopResetTimer()   // 🔥 cancel timer
+                goToLauncher()     // 🔥 no reset happens
+            } else {
+                if(!hadReset) {
+                    startResetTimer()
+                }
             }
             handler.postDelayed(this, 1000)
         }
@@ -44,7 +51,15 @@ class LockedActivity : BaseActivity() {
 
         // ================= BACKGROUND IMAGE =================
         val bgImage = ImageView(this).apply {
-            setImageResource(R.drawable.bg_gaming) // 🔥 your image here
+
+            val file = java.io.File(filesDir, "lock_bg.jpg")
+
+            if (file.exists()) {
+                setImageURI(android.net.Uri.fromFile(file))
+            } else {
+                setImageResource(R.drawable.bg_gaming) // fallback
+            }
+
             scaleType = ImageView.ScaleType.CENTER_CROP
 
             layoutParams = FrameLayout.LayoutParams(
@@ -87,11 +102,6 @@ class LockedActivity : BaseActivity() {
                 marginEnd = dp(16)
             }
 
-//            background = GradientDrawable().apply {
-//                setColor(Color.parseColor("#1AFFFFFF")) // glass effect
-//                cornerRadius = dp(20).toFloat()
-//            }
-
             elevation = dp(12).toFloat()
         }
 
@@ -107,27 +117,28 @@ class LockedActivity : BaseActivity() {
 
         // ================= TITLE =================
         val title = TextView(this).apply {
-            text = "INSERT COIN"
-            textSize = 40f
+            text = "Insert Coin!"
+            textSize = 50f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
+            letterSpacing = 0.05f
         }
 
         // ================= DESCRIPTION =================
         val desc = TextView(this).apply {
-            text = "Connect charger to continue"
-            textSize = 15f
-            setTextColor(Color.parseColor("#B0BEC5"))
+            text = "Plug in to continue"
+            textSize = 18f
+            setTextColor(Color.parseColor("#E0E0E0"))
             gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, dp(20))
+            setPadding(0, dp(12), 0, dp(20))
         }
 
         // ================= FOOTER =================
         val footer = TextView(this).apply {
-            text = "Kiosk System"
-            textSize = 13f
-            setTextColor(Color.parseColor("#78909C"))
+            text = "Cebu Piso Tab and Rentals"
+            textSize = 14f
+            setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER
         }
 
@@ -170,5 +181,85 @@ class LockedActivity : BaseActivity() {
 
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private fun startResetTimer() {
+
+        if (isTimerRunning) return
+
+        isTimerRunning = true
+
+        countDownTimer = object : android.os.CountDownTimer(10_000, 10_000) {
+
+            override fun onTick(millisUntilFinished: Long) {
+                // no UI
+            }
+
+            override fun onFinish() {
+                isTimerRunning = false
+
+                // 🔥 ONLY reset if STILL unplugged
+                if (!isCharging() && !hadReset) {
+                    performReset()
+                }
+            }
+
+        }.start()
+    }
+
+    private fun stopResetTimer() {
+        countDownTimer?.cancel()
+        countDownTimer = null
+        isTimerRunning = false
+    }
+
+    private fun performReset() {
+
+        val dpm = getSystemService(android.app.admin.DevicePolicyManager::class.java)
+
+        val admin = android.content.ComponentName(
+            this,
+            com.kiosk.app.core.admin.MyDeviceAdminReceiver::class.java
+        )
+
+        val prefs = com.kiosk.app.core.data.PrefsManager(this)
+        val apps = prefs.getEnabledApps()
+
+        if (apps.isEmpty()) return
+
+        val executor = androidx.core.content.ContextCompat.getMainExecutor(this)
+
+        var completed = 0
+        val total = apps.count { it != packageName }
+
+        apps.forEach { pkg ->
+
+            if (pkg == packageName) return@forEach
+
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+
+                    dpm.clearApplicationUserData(
+                        admin,
+                        pkg,
+                        executor
+                    ) { _, _ ->
+                        completed++
+
+                        if (completed == total) {
+                            hadReset = true;
+                            Toast.makeText(
+                                this,
+                                "Apps reset complete",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

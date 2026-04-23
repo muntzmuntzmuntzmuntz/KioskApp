@@ -3,6 +3,7 @@ package com.kiosk.app.ui.admin
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -10,8 +11,11 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.marginTop
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.kiosk.app.R
 import com.kiosk.app.core.data.AppRepository
 import com.kiosk.app.core.data.PrefsManager
 import com.kiosk.app.core.model.AppItem
@@ -31,6 +35,8 @@ class AdminActivity : BaseActivity() {
 
         prefs = PrefsManager(this)
 
+        val typeFace = ResourcesCompat.getFont(this, R.font.orbitron)
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#F5F7FA"))
@@ -45,24 +51,17 @@ class AdminActivity : BaseActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "Admin Panel"
-            textSize = 20f
+            text = "Administrator"
+            textSize = 25f
+            setTypeface(typeFace, Typeface.BOLD)
             setTextColor(Color.BLACK)
+            letterSpacing = 0.09f
 
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1f
             )
-        }
-
-        val closeBtn = ImageView(this).apply {
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
-
-            setOnClickListener {
-                closeApp()
-            }
         }
 
         val menuBtn = ImageView(this).apply {
@@ -77,7 +76,6 @@ class AdminActivity : BaseActivity() {
 
         header.addView(title)
         // TODO: admin close button update logic
-        header.addView(closeBtn)
         header.addView(menuBtn);
 
         // ================= SEARCH =================
@@ -221,6 +219,8 @@ class AdminActivity : BaseActivity() {
         popup.menu.add("Update PIN")
         popup.menu.add("Change Lock Background")
         popup.menu.add("Change Dashboard Background")
+        popup.menu.add("Update Wallpaper Texts")
+        popup.menu.add("Force Quit")
 
         popup.setOnMenuItemClickListener { item ->
             when (item.title) {
@@ -233,10 +233,67 @@ class AdminActivity : BaseActivity() {
                     bgTarget = "launcher"
                     openImagePicker()
                 }
+                "Update Wallpaper Texts" -> {
+                    showWallpaperTextDialog()
+                }
+                "Force Quit" -> {
+                    closeApp()
+                }
             }
             true
         }
         popup.show()
+    }
+
+    private fun showWallpaperTextDialog() {
+
+        val dialog = android.app.Dialog(this)
+        dialog.setCancelable(true)
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+        }
+
+        val titleInput = EditText(this).apply {
+            hint = "Title (e.g. INSERT COIN!)"
+            setText(prefs.getWallpaperTitle())
+            setPadding(0, dp(0), 0, 10)
+            textSize = 20f
+        }
+
+        val subtitleInput = EditText(this).apply {
+            hint = "Subtitle"
+            setText(prefs.getWallpaperSubtitle())
+            setPadding(0, dp(0), 0, 15)
+            textSize = 20f
+        }
+
+        val saveBtn = Button(this).apply {
+            text = "Save"
+            textSize = 15f
+            setPadding(0,20,0,0)
+
+            setOnClickListener {
+                val title = titleInput.text.toString().trim()
+                val subtitle = subtitleInput.text.toString().trim()
+
+                prefs.setWallpaperTexts(title, subtitle)
+
+                dialog.dismiss()
+            }
+        }
+
+        container.addView(titleInput)
+        container.addView(subtitleInput)
+        container.addView(saveBtn)
+
+        dialog.setContentView(container)
+        dialog.window?.setLayout(
+            400,
+            350
+        )
+        dialog.show()
     }
 
     private fun showUpdatePinDialog() {
@@ -320,7 +377,6 @@ class AdminActivity : BaseActivity() {
     }
 
     private fun saveNewPin(pin: String) {
-        val prefs = PrefsManager(this)
         prefs.savePin(pin)
 
         Toast.makeText(this, "PIN updated", Toast.LENGTH_SHORT).show()

@@ -1,45 +1,38 @@
 package com.kiosk.app.ui.locked
 
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.BatteryManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.content.res.ResourcesCompat
 import com.kiosk.app.R
+import com.kiosk.app.core.data.PrefsManager
 import com.kiosk.app.ui.base.BaseActivity
-import com.kiosk.app.ui.launcher.LauncherActivity
 
 class LockedActivity : BaseActivity() {
 
-    private val handler = Handler(Looper.getMainLooper())
-    private var countDownTimer: android.os.CountDownTimer? = null
     private var isTimerRunning = false
     private var hadReset = false;
+    private val countDownTime: Long = 5_000
+    private var countDownTimer: android.os.CountDownTimer? = null
+    private lateinit var prefs: PrefsManager
 
-    private val checkPowerRunnable = object : Runnable {
-        override fun run() {
-            if (isCharging()) {
-                stopResetTimer()   // 🔥 cancel timer
-                goToLauncher()     // 🔥 no reset happens
-            } else {
-                if(!hadReset) {
-                    startResetTimer()
-                }
-            }
-            handler.postDelayed(this, 1000)
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prefs = PrefsManager(this)
+
+        if(!hadReset) {
+            startResetTimer();
+        }
+
+        val typeFace = ResourcesCompat.getFont(this, R.font.orbitron)
+
+        Log.d("Char Locked", ">>>>>>>>>>>>>")
 
         // ================= ROOT =================
         val root = FrameLayout(this).apply {
@@ -87,6 +80,7 @@ class LockedActivity : BaseActivity() {
             setPadding(dp(24), dp(24), dp(24), dp(24))
         }
 
+
         // ================= GLASS CARD =================
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -94,7 +88,7 @@ class LockedActivity : BaseActivity() {
             setPadding(dp(28), dp(28), dp(28), dp(28))
 
             layoutParams = FrameLayout.LayoutParams(
-                700,
+                1000,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER
             ).apply {
@@ -105,30 +99,24 @@ class LockedActivity : BaseActivity() {
             elevation = dp(12).toFloat()
         }
 
-        // ================= ICON =================
-        val icon = ImageView(this).apply {
-            setImageResource(R.drawable.ic_peso)
-            setColorFilter(Color.parseColor("#80D8FF"))
-
-            layoutParams = LinearLayout.LayoutParams(dp(56), dp(56)).apply {
-                bottomMargin = dp(16)
-            }
-        }
+        val titleText = prefs.getWallpaperTitle()
 
         // ================= TITLE =================
         val title = TextView(this).apply {
-            text = "Insert Coin!"
-            textSize = 50f
-            setTypeface(null, Typeface.BOLD)
+            text = titleText
+            textSize = 100f
+            setTypeface(typeFace, Typeface.BOLD)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             letterSpacing = 0.05f
         }
 
+        val descText = prefs.getWallpaperSubtitle()
         // ================= DESCRIPTION =================
         val desc = TextView(this).apply {
-            text = "Plug in to continue"
-            textSize = 18f
+            text = descText
+            setTypeface(typeFace)
+            textSize = 30f
             setTextColor(Color.parseColor("#E0E0E0"))
             gravity = Gravity.CENTER
             setPadding(0, dp(12), 0, dp(20))
@@ -143,7 +131,7 @@ class LockedActivity : BaseActivity() {
         }
 
         // ================= BUILD =================
-        card.addView(icon)
+//        card.addView(icon)
         card.addView(title)
         card.addView(desc)
         card.addView(footer)
@@ -159,24 +147,16 @@ class LockedActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        handler.post(checkPowerRunnable)
     }
 
     override fun onPause() {
         super.onPause()
-        handler.removeCallbacks(checkPowerRunnable)
+        stopResetTimer()
     }
 
-    private fun goToLauncher() {
-        startActivity(Intent(this, LauncherActivity::class.java))
-        finish()
-    }
-
-    private fun isCharging(): Boolean {
-        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        return status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                status == BatteryManager.BATTERY_STATUS_FULL
+    override fun onDestroy() {
+        super.onDestroy()
+        stopResetTimer()
     }
 
     private fun dp(value: Int): Int {
@@ -189,17 +169,18 @@ class LockedActivity : BaseActivity() {
 
         isTimerRunning = true
 
-        countDownTimer = object : android.os.CountDownTimer(10_000, 10_000) {
+        countDownTimer = object : android.os.CountDownTimer(countDownTime, countDownTime) {
 
             override fun onTick(millisUntilFinished: Long) {
                 // no UI
+                Toast.makeText(this@LockedActivity,"Clearing login data in 5 seconds", Toast.LENGTH_LONG).show()
             }
 
             override fun onFinish() {
                 isTimerRunning = false
 
                 // 🔥 ONLY reset if STILL unplugged
-                if (!isCharging() && !hadReset) {
+                if (!hadReset) {
                     performReset()
                 }
             }

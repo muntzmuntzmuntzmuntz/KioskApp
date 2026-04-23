@@ -1,15 +1,19 @@
 package com.kiosk.app.ui.launcher
 
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
 import android.media.AudioManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.kiosk.app.core.data.AppRepository
@@ -18,6 +22,8 @@ import com.kiosk.app.ui.base.BaseActivity
 import com.kiosk.app.ui.locked.LockedActivity
 import com.kiosk.app.ui.pin.PinUnlockActivity
 import androidx.core.graphics.toColorInt
+import com.kiosk.app.R
+import com.kiosk.app.core.kiosk.KioskManager
 import java.io.File
 
 class LauncherActivity : BaseActivity() {
@@ -25,28 +31,21 @@ class LauncherActivity : BaseActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var adapter: LauncherAdapter
     private lateinit var repo: AppRepository
-    private lateinit var powerManager: PowerEventManager
     lateinit var content: FrameLayout
-
     private var tapCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!isCharging()) {
-            startActivity(Intent(this, LockedActivity::class.java))
-            finish()
-            return
-        }
+        KioskManager.setupFeatures(this)
+        KioskManager.startKiosk(this)
+        KioskManager.setAsDefaultLauncher(this)
+
+        Log.d("Char Launch", ">>>>>>>>>>>>>")
+
         repo = AppRepository(this)
 
-        powerManager = PowerEventManager(this, object : PowerEventManager.Listener {
-            override fun onPowerConnected() {}
-            override fun onPowerDisconnected() {
-                startActivity(Intent(this@LauncherActivity, LockedActivity::class.java))
-                finish()
-            }
-        })
+        val typeFace = ResourcesCompat.getFont(this, R.font.orbitron)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -61,14 +60,15 @@ class LauncherActivity : BaseActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "Cebu Piso Tab"
-            textSize = 20f
-            setTypeface(null, Typeface.BOLD)
+            text = "Dashboard"
+            textSize = 25f
+            setTypeface(typeFace, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            letterSpacing = 0.09f
         }
 
         val settings = ImageView(this).apply {
-            setImageResource(android.R.drawable.ic_menu_manage)
+            setImageResource(android.R.drawable.ic_menu_more)
             layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
 
             setOnClickListener {
@@ -77,18 +77,45 @@ class LauncherActivity : BaseActivity() {
             }
         }
 
-//        val closeBtn = ImageView(this).apply {
-//            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-//            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
-//
-//            setOnClickListener {
-//                closeApp()
-//            }
-//        }
+        val closeApp = ImageView(this).apply {
+            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+
+            setOnClickListener {
+                closeApp()
+            }
+        }
+
+        // ================= BATTERY =================
+        val batteryRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 15, 20, dp(0))
+        }
+
+        val batteryIcon = TextView(this).apply {
+            text = "🔋"
+            textSize = 18f
+            setPadding(0, 0, dp(0), 0)
+        }
+
+        val batteryLevel = getBatteryPercentage()
+        val batteryText = TextView(this).apply {
+            text = "$batteryLevel%"
+            textSize = 10f
+            setTextColor(Color.BLACK)
+        }
+
+        batteryRow.addView(batteryIcon)
+        batteryRow.addView(batteryText)
+
 
         header.addView(title)
+        header.addView(batteryRow)
         header.addView(settings)
-//        header.addView(closeBtn)
+
+//        // TODO: remove this on deploy!
+        header.addView(closeApp)
 
         // ================= CONTENT =================
         content = FrameLayout(this).apply {
@@ -111,18 +138,31 @@ class LauncherActivity : BaseActivity() {
 
         val apps = repo.getFilteredApps()
 
-        if (apps.isEmpty()) {
-            val empty = TextView(this).apply {
-                text = "No apps available. Please contact Administrator."
-                textSize = 18f
-                setTextColor(Color.GRAY)
+        if (batteryLevel < 50) {
+            val hibernating = TextView(this).apply {
+                text = "Not enough battery level. Hibernating..."
+                textSize = 70f
+//                setTextColor(Color.parseColor("#E0E0E0"))
+                setTypeface(typeFace, Typeface.BOLD)
+                setTextColor(Color.BLACK)
                 gravity = Gravity.CENTER
+                letterSpacing = 0.05f
             }
-            content.addView(empty)
+            content.addView(hibernating)
         } else {
-            recycler.adapter = adapter
-            adapter.submitList(apps)
-            content.addView(recycler)
+            if (apps.isEmpty()) {
+                val empty = TextView(this).apply {
+                    text = "No apps available. Please contact Administrator."
+                    textSize = 18f
+                    setTextColor(Color.GRAY)
+                    gravity = Gravity.CENTER
+                }
+                content.addView(empty)
+            } else {
+                recycler.adapter = adapter
+                adapter.submitList(apps)
+                content.addView(recycler)
+            }
         }
 
         root.setOnClickListener {
@@ -139,20 +179,31 @@ class LauncherActivity : BaseActivity() {
         setContentView(root)
     }
 
+    override fun onBackPressed() {
+        super.onBackPressed()
+        Log.d("DDD", "Launcher Activity back pressed!")
+
+    }
+
     override fun onStart() {
         super.onStart()
-        powerManager.register()
     }
 
     override fun onStop() {
         super.onStop()
-        powerManager.unregister()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d("DDD", "Launcher Activity paused!")
     }
 
     override fun onResume() {
         super.onResume()
 
-        enableKioskMode()
+        if (KioskManager.isDeviceOwner(this)) {
+            enableKioskMode()
+        }
         applyLauncherBackground()
     }
 
@@ -312,11 +363,18 @@ class LauncherActivity : BaseActivity() {
         }
     }
 
-    private fun isCharging(): Boolean {
-        val intent = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        return status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                status == BatteryManager.BATTERY_STATUS_FULL
+    private fun getBatteryPercentage(): Int {
+        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            ?: return -1
+
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+
+        return if (level >= 0 && scale > 0) {
+            (level * 100 / scale.toFloat()).toInt()
+        } else {
+            -1
+        }
     }
 
     private fun calculateSpanCount(): Int {
@@ -346,7 +404,7 @@ class LauncherActivity : BaseActivity() {
         dpm.setLockTaskPackages(admin, allowed.toTypedArray())
 
         if (!isInLockTaskMode()) {
-            startLockTask()
+            KioskManager.startKiosk(this)
         }
     }
 
@@ -368,6 +426,7 @@ class LauncherActivity : BaseActivity() {
         }
     }
 
+    // TODO: For development only.
     private fun closeApp() {
         finishAffinity()
         android.os.Process.killProcess(android.os.Process.myPid())

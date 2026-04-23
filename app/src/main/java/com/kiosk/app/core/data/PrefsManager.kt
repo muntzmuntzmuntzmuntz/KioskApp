@@ -22,4 +22,19 @@ class PrefsManager(context: Context) {
     fun savePin(newPin: String) {
         prefs.edit { putString("admin_pin", newPin) }
     }
+
+    fun setWallpaperTexts(title: String, subtitle: String) {
+        prefs.edit()
+            .putString("wallpaper_title", title)
+            .putString("wallpaper_subtitle", subtitle)
+            .apply()
+    }
+
+    fun getWallpaperTitle(): String {
+        return prefs.getString("wallpaper_title", "INSERT COIN!") ?: "INSERT COIN!"
+    }
+
+    fun getWallpaperSubtitle(): String {
+        return prefs.getString("wallpaper_subtitle", "To continue playing") ?: "To continue playing"
+    }
 }

@@ -12,6 +12,9 @@
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
+<!--                todo: ENABLE FOR PRODUCTION-->
+<!--                <category android:name="android.intent.category.HOME"/>-->
+                <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 

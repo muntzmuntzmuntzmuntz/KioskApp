@@ -11,6 +11,15 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("kiosk-key.jks")
+            storePassword = "82463791"
+            keyAlias = "kiosk"
+            keyPassword = "82463791"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.kiosk.app"
         minSdk = 26
@@ -28,6 +37,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // 🔥 THIS IS THE MISSING LINE
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

@@ -1,10 +1,28 @@
-<manifest package="com.kiosk.app"
+<manifest xmlns:tools="http://schemas.android.com/tools"
+    package="com.kiosk.app"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+    <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" android:maxSdkVersion="22" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
+        tools:ignore="ForegroundServicesPolicy" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
-    <application android:theme="@style/Theme.Kiosk">
+    <application
+        android:theme="@style/Theme.Kiosk"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name">
+
+        <service
+            android:name=".core.service.PowerManagementService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+
         <activity android:name=".ui.launcher.LauncherActivity"
             android:exported="true"
             android:lockTaskMode="if_whitelisted"
@@ -13,7 +31,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 <!--                todo: ENABLE FOR PRODUCTION-->
-<!--                <category android:name="android.intent.category.HOME"/>-->
+                <category android:name="android.intent.category.HOME"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
@@ -40,19 +58,19 @@
         </receiver>
 
     </application>
-    <queries>
+<!--    <queries>-->
 
-        <!-- Chrome -->
-        <package android:name="com.android.chrome" />
+<!--        &lt;!&ndash; Chrome &ndash;&gt;-->
+<!--        <package android:name="com.android.chrome" />-->
 
-        <!-- YouTube -->
-        <package android:name="com.google.android.youtube" />
+<!--        &lt;!&ndash; YouTube &ndash;&gt;-->
+<!--        <package android:name="com.google.android.youtube" />-->
 
-        <!-- Allow querying launchable apps -->
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
+<!--        &lt;!&ndash; Allow querying launchable apps &ndash;&gt;-->
+<!--        <intent>-->
+<!--            <action android:name="android.intent.action.MAIN" />-->
+<!--            <category android:name="android.intent.category.LAUNCHER" />-->
+<!--        </intent>-->
 
-    </queries>
+<!--    </queries>-->
 </manifest>

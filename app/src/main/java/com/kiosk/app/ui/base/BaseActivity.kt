@@ -14,37 +14,12 @@ import com.kiosk.app.ui.locked.LockedActivity
 
 abstract class BaseActivity : AppCompatActivity() {
 
-    private var lastChargingState = false
-    private val handler = Handler(Looper.getMainLooper())
-
-    private val powerCheck = object : Runnable {
-        override fun run() {
-
-            val charging = isCharging()
-
-            if (charging != lastChargingState) {
-                lastChargingState = charging
-
-
-                when (this@BaseActivity) {
-                    is LauncherActivity -> {
-                        if (!charging) goToLocked()
-                    }
-
-                    is LockedActivity -> {
-                        if (charging) goToLauncher()
-                    }
-                }
-
-            }
-
-            handler.postDelayed(this, 1000)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        handler.post(powerCheck)
         super.onCreate(savedInstanceState)
+        
+        // Start the power management service if it's not running
+        val intent = Intent(this, com.kiosk.app.core.service.PowerManagementService::class.java)
+        startForegroundService(intent)
     }
 
     override fun onResume() {
@@ -54,8 +29,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        handler.post(powerCheck)
-        Log.d("DDD", "Base Activity back onPause!")
+        Log.d("DDD", "Base Activity onPause!")
     }
 
     private fun hideSystemUI() {
@@ -68,38 +42,5 @@ abstract class BaseActivity : AppCompatActivity() {
     override fun onBackPressed() {
         // disable back
         Log.d("DDD", "Base Activity back pressed!")
-    }
-
-    // 🔋 Reliable power detection
-    private fun isCharging(): Boolean {
-        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            ?: return false
-
-        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
-        val isCharging = plugged != 0
-
-        Log.d("Char POWER_DEBUG", "plugged=$plugged charging=$isCharging")
-        return isCharging
-    }
-
-    // 🔁 Navigation helpers
-    private fun goToLocked() {
-        if (this is LockedActivity) return
-
-        val intent = Intent(this, LockedActivity::class.java).apply {
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TASK
-            )
-        }
-        startActivity(intent)
-    }
-
-    private fun goToLauncher() {
-        if (this is LauncherActivity) return
-        startActivity(Intent(this, LauncherActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        })
-//        finish()
     }
 }

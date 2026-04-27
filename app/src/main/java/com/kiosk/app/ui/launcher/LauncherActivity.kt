@@ -428,7 +428,6 @@ class LauncherActivity : BaseActivity() {
 
     // TODO: For development only.
     private fun closeApp() {
-        finishAffinity()
-        android.os.Process.killProcess(android.os.Process.myPid())
+        throw RuntimeException("Test crash triggered manually")
     }
 }

@@ -17,7 +17,6 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.kiosk.app.core.data.AppRepository
-import com.kiosk.app.core.system.PowerEventManager
 import com.kiosk.app.ui.base.BaseActivity
 import com.kiosk.app.ui.locked.LockedActivity
 import com.kiosk.app.ui.pin.PinUnlockActivity

@@ -23,6 +23,11 @@
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
+        <service
+            android:name=".core.service.AppResetService"
+            android:enabled="true"
+            android:exported="false" />
+
         <activity android:name=".ui.launcher.LauncherActivity"
             android:exported="true"
             android:lockTaskMode="if_whitelisted"

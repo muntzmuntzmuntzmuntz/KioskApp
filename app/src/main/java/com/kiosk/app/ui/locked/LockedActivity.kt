@@ -15,20 +15,11 @@ import com.kiosk.app.ui.base.BaseActivity
 
 class LockedActivity : BaseActivity() {
 
-    private var isTimerRunning = false
-    private var hadReset = false;
-    private val countDownTime: Long = 5_000
-    private var countDownTimer: android.os.CountDownTimer? = null
     private lateinit var prefs: PrefsManager
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = PrefsManager(this)
-
-        if(!hadReset) {
-            startResetTimer();
-        }
 
         val typeFace = ResourcesCompat.getFont(this, R.font.orbitron)
 
@@ -145,102 +136,7 @@ class LockedActivity : BaseActivity() {
         setContentView(root)
     }
 
-    override fun onResume() {
-        super.onResume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        stopResetTimer()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopResetTimer()
-    }
-
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
-    }
-
-    private fun startResetTimer() {
-
-        if (isTimerRunning) return
-
-        isTimerRunning = true
-
-        countDownTimer = object : android.os.CountDownTimer(countDownTime, countDownTime) {
-
-            override fun onTick(millisUntilFinished: Long) {
-                // no UI
-                Toast.makeText(this@LockedActivity,"Clearing login data in 5 seconds", Toast.LENGTH_LONG).show()
-            }
-
-            override fun onFinish() {
-                isTimerRunning = false
-
-                // 🔥 ONLY reset if STILL unplugged
-                if (!hadReset) {
-                    performReset()
-                }
-            }
-
-        }.start()
-    }
-
-    private fun stopResetTimer() {
-        countDownTimer?.cancel()
-        countDownTimer = null
-        isTimerRunning = false
-    }
-
-    private fun performReset() {
-
-        val dpm = getSystemService(android.app.admin.DevicePolicyManager::class.java)
-
-        val admin = android.content.ComponentName(
-            this,
-            com.kiosk.app.core.admin.MyDeviceAdminReceiver::class.java
-        )
-
-        val prefs = com.kiosk.app.core.data.PrefsManager(this)
-        val apps = prefs.getEnabledApps()
-
-        if (apps.isEmpty()) return
-
-        val executor = androidx.core.content.ContextCompat.getMainExecutor(this)
-
-        var completed = 0
-        val total = apps.count { it != packageName }
-
-        apps.forEach { pkg ->
-
-            if (pkg == packageName) return@forEach
-
-            try {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-
-                    dpm.clearApplicationUserData(
-                        admin,
-                        pkg,
-                        executor
-                    ) { _, _ ->
-                        completed++
-
-                        if (completed == total) {
-                            hadReset = true;
-                            Toast.makeText(
-                                this,
-                                "Apps reset complete",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
 }

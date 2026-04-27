@@ -65,11 +65,21 @@ class PowerManagementService : Service() {
         Toast.makeText(this, "Power state changed: $isCharging", Toast.LENGTH_SHORT).show()
 
         if (isCharging) {
+            // Cancel any pending reset
+            val cancelIntent = Intent(this, AppResetService::class.java).apply {
+                action = AppResetService.ACTION_CANCEL_RESET
+            }
+            startService(cancelIntent)
+
             val intent = Intent(this, LauncherActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
             startActivity(intent)
         } else {
+            // Start reset timer
+            val resetIntent = Intent(this, AppResetService::class.java)
+            startService(resetIntent)
+
             val intent = Intent(this, LockedActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }

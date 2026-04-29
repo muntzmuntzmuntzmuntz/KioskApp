@@ -1,1 +1,65 @@
-<div>Hello Render is working</div>Hello Render is working
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kiosk Setup</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f7f9;
+            text-align: center;
+            padding: 40px;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            margin: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        p {
+            color: #666;
+        }
+        .btn {
+            display: block;
+            margin: 20px 0;
+            padding: 14px;
+            background: black;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .steps {
+            text-align: left;
+            font-size: 14px;
+            color: #444;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Kiosk Setup</h1>
+    <p>Download and follow the instructions below</p>
+
+    <a class="btn" href="kiosk-setup.zip">Download Setup Package</a>
+
+    <div class="steps">
+        <b>Steps:</b>
+        <ol>
+            <li>Factory reset the tablet</li>
+            <li>Enable Developer Mode</li>
+            <li>Turn on USB Debugging</li>
+            <li>Connect tablet to PC</li>
+            <li>Run setup.bat (Windows) or setup.sh (Mac)</li>
+        </ol>
+    </div>
+</div>
+
+</body>
+</html>

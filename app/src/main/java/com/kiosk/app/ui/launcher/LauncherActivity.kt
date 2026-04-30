@@ -6,24 +6,29 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.media.AudioManager
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.InputFilter
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.core.content.res.ResourcesCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.kiosk.app.core.data.AppRepository
-import com.kiosk.app.ui.base.BaseActivity
-import com.kiosk.app.ui.locked.LockedActivity
-import com.kiosk.app.ui.pin.PinUnlockActivity
-import androidx.core.graphics.toColorInt
 import com.kiosk.app.R
+import com.kiosk.app.core.data.ApiClient
+import com.kiosk.app.core.data.AppRepository
+import com.kiosk.app.core.data.PrefsManager
 import com.kiosk.app.core.kiosk.KioskManager
+import com.kiosk.app.ui.base.BaseActivity
+import com.kiosk.app.ui.pin.PinUnlockActivity
+import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Locale
 
 class LauncherActivity : BaseActivity() {
 
@@ -32,9 +37,12 @@ class LauncherActivity : BaseActivity() {
     private lateinit var repo: AppRepository
     lateinit var content: FrameLayout
     private var tapCount = 0
+    private lateinit var prefs: PrefsManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        prefs = PrefsManager(this)
 
         KioskManager.setupFeatures(this)
         KioskManager.startKiosk(this)
@@ -137,30 +145,34 @@ class LauncherActivity : BaseActivity() {
 
         val apps = repo.getFilteredApps()
 
-        if (batteryLevel < 50) {
-            val hibernating = TextView(this).apply {
-                text = "Not enough battery level. Hibernating..."
-                textSize = 70f
-//                setTextColor(Color.parseColor("#E0E0E0"))
-                setTypeface(typeFace, Typeface.BOLD)
-                setTextColor(Color.BLACK)
-                gravity = Gravity.CENTER
-                letterSpacing = 0.05f
-            }
-            content.addView(hibernating)
+        if (!prefs.isActivated()) {
+            showActivationPrompt(typeFace, prefs)
         } else {
-            if (apps.isEmpty()) {
-                val empty = TextView(this).apply {
-                    text = "No apps available. Please contact Administrator."
-                    textSize = 18f
-                    setTextColor(Color.GRAY)
+            if (batteryLevel < 50) {
+                val hibernating = TextView(this).apply {
+                    text = "Not enough battery level. Hibernating..."
+                    textSize = 70f
+//                setTextColor(Color.parseColor("#E0E0E0"))
+                    setTypeface(typeFace, Typeface.BOLD)
+                    setTextColor(Color.BLACK)
                     gravity = Gravity.CENTER
+                    letterSpacing = 0.05f
                 }
-                content.addView(empty)
+                content.addView(hibernating)
             } else {
-                recycler.adapter = adapter
-                adapter.submitList(apps)
-                content.addView(recycler)
+                if (apps.isEmpty()) {
+                    val empty = TextView(this).apply {
+                        text = "No apps available. Please contact Administrator."
+                        textSize = 18f
+                        setTextColor(Color.GRAY)
+                        gravity = Gravity.CENTER
+                    }
+                    content.addView(empty)
+                } else {
+                    recycler.adapter = adapter
+                    adapter.submitList(apps)
+                    content.addView(recycler)
+                }
             }
         }
 
@@ -176,6 +188,177 @@ class LauncherActivity : BaseActivity() {
         root.addView(content)
 
         setContentView(root)
+    }
+
+    private fun showActivationPrompt(typeFace: Typeface?, prefs: PrefsManager) {
+        val apiClient = ApiClient(prefs.getServerUrl())
+
+        val wrapper = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), Color.parseColor("#E5E7EB"))
+            }
+            elevation = dp(4).toFloat()
+            layoutParams = LinearLayout.LayoutParams(
+                (resources.displayMetrics.widthPixels * 0.55f).toInt()
+                    .coerceIn(dp(320), dp(520)),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val title = TextView(this).apply {
+            text = "Device Activation"
+            textSize = 24f
+            setTypeface(typeFace, Typeface.BOLD)
+            setTextColor(Color.BLACK)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        }
+
+        val message = TextView(this).apply {
+            text = "Enter your activation code to unlock this kiosk."
+            textSize = 14f
+            setTextColor(Color.GRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(20))
+        }
+
+        val codeInput = EditText(this).apply {
+            hint = "Activation code"
+            textSize = 18f
+            setTextColor(Color.BLACK)
+            setHintTextColor(Color.GRAY)
+            gravity = Gravity.CENTER
+            setSingleLine(true)
+            setTypeface(Typeface.MONOSPACE)
+            filters = arrayOf(InputFilter.AllCaps())
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#F8F9FA"))
+                cornerRadius = dp(8).toFloat()
+                setStroke(dp(1), Color.parseColor("#D1D5DB"))
+            }
+        }
+
+        val statusText = TextView(this).apply {
+            textSize = 13f
+            setTextColor(Color.GRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(12), 0, 0)
+            visibility = View.GONE
+        }
+
+        val progressBar = ProgressBar(this).apply {
+            visibility = View.GONE
+        }
+
+        val activateButton = Button(this).apply {
+            text = "Verify Code"
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            setPadding(dp(24), dp(14), dp(24), dp(14))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#111827"))
+                cornerRadius = dp(8).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(16)
+            }
+        }
+
+        fun showStatus(message: String, color: Int) {
+            statusText.text = message
+            statusText.setTextColor(color)
+            statusText.visibility = if (message.isEmpty()) View.GONE else View.VISIBLE
+        }
+
+        fun setLoading(loading: Boolean) {
+            progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+            activateButton.isEnabled = !loading
+            codeInput.isEnabled = !loading
+        }
+
+        fun verifyCode() {
+            val code = codeInput.text.toString().trim().uppercase(Locale.ROOT)
+
+            if (code.isEmpty()) {
+                showStatus("Please enter an activation code.", Color.RED)
+                return
+            }
+
+            if (code.length < 6) {
+                showStatus("Activation code must be at least 6 characters.", Color.RED)
+                return
+            }
+
+            val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+
+            setLoading(true)
+            showStatus("", Color.GRAY)
+
+            lifecycleScope.launch {
+                val result = apiClient.validateActivationCode(code, deviceId)
+
+                result.onSuccess { response ->
+                    if (response.valid) {
+                        prefs.setActivated(true, code)
+                        showStatus("Device activated successfully.", Color.rgb(22, 163, 74))
+
+                        android.os.Handler(mainLooper).postDelayed({
+                            recreate()
+                        }, 700)
+                    } else {
+                        showStatus(activationFailureMessage(response.reason), Color.RED)
+                    }
+                }.onFailure { error ->
+                    Log.e("LauncherActivity", "Activation failed", error)
+                    showStatus(
+                        "Could not verify code. Check the network and try again.",
+                        Color.RED
+                    )
+                }
+
+                setLoading(false)
+            }
+        }
+
+        activateButton.setOnClickListener { verifyCode() }
+
+        card.addView(title)
+        card.addView(message)
+        card.addView(codeInput)
+        card.addView(statusText)
+        card.addView(progressBar)
+        card.addView(activateButton)
+        wrapper.addView(card)
+        content.addView(wrapper)
+    }
+
+    private fun activationFailureMessage(reason: String?): String {
+        return when (reason) {
+            "not_found" -> "Activation code was not found."
+            "revoked" -> "Activation code has been revoked."
+            "expired" -> "Activation code has expired."
+            "device_mismatch" -> "Activation code is assigned to another device."
+            else -> "Activation code is invalid."
+        }
     }
 
     override fun onBackPressed() {
@@ -394,7 +577,6 @@ class LauncherActivity : BaseActivity() {
         )
 
         // 🔥 get saved apps
-        val prefs = com.kiosk.app.core.data.PrefsManager(this)
         val enabledApps = prefs.getEnabledApps()
 
         val allowed = mutableListOf(packageName)

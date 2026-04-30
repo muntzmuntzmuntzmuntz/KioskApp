@@ -66,6 +66,11 @@ dependencies {
     implementation(libs.androidx.compiler)
     implementation(libs.play.services.maps3d)
     implementation(libs.androidx.cardview)
+
+    // Network dependencies
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -37,4 +37,27 @@ class PrefsManager(context: Context) {
     fun getWallpaperSubtitle(): String {
         return prefs.getString("wallpaper_subtitle", "To continue playing") ?: "To continue playing"
     }
+
+    fun setActivated(activated: Boolean, activationCode: String? = null) {
+        prefs.edit()
+            .putBoolean("device_activated", activated)
+            .putString("activation_code", activationCode)
+            .apply()
+    }
+
+    fun isActivated(): Boolean {
+        return prefs.getBoolean("device_activated", false)
+    }
+
+    fun getActivationCode(): String? {
+        return prefs.getString("activation_code", null)
+    }
+
+    fun setServerUrl(url: String) {
+        prefs.edit { putString("server_url", url) }
+    }
+
+    fun getServerUrl(): String {
+        return prefs.getString("server_url", "http://localhost:3000") ?: "http://localhost:3000"
+    }
 }

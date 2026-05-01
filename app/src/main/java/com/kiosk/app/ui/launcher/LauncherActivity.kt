@@ -31,7 +31,6 @@ import java.io.File
 import java.util.Locale
 
 class LauncherActivity : BaseActivity() {
-
     private lateinit var recycler: RecyclerView
     private lateinit var adapter: LauncherAdapter
     private lateinit var repo: AppRepository
@@ -43,6 +42,7 @@ class LauncherActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
 
         prefs = PrefsManager(this)
+        clearExpiredActivationIfNeeded()
 
         KioskManager.setupFeatures(this)
         KioskManager.startKiosk(this)
@@ -68,6 +68,7 @@ class LauncherActivity : BaseActivity() {
 
         val title = TextView(this).apply {
             text = "Dashboard"
+            setTextColor(Color.BLACK)
             textSize = 25f
             setTypeface(typeFace, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -90,6 +91,26 @@ class LauncherActivity : BaseActivity() {
 
             setOnClickListener {
                 closeApp()
+            }
+        }
+
+        // TODO: remove for deployments
+        val expireActivation = TextView(this).apply {
+            text = "EXP"
+            gravity = Gravity.CENTER
+            textSize = 10f
+            setTextColor(Color.WHITE)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#DC2626"))
+                cornerRadius = dp(8).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply {
+                marginEnd = dp(8)
+            }
+
+            setOnClickListener {
+                prefs.expireActivationNow()
+                recreate()
             }
         }
 
@@ -121,7 +142,8 @@ class LauncherActivity : BaseActivity() {
         header.addView(batteryRow)
         header.addView(settings)
 
-//        // TODO: remove this on deploy!
+        // TODO: remove this on deploy!
+        header.addView(expireActivation)
         header.addView(closeApp)
 
         // ================= CONTENT =================
@@ -176,9 +198,9 @@ class LauncherActivity : BaseActivity() {
             }
         }
 
-        root.setOnClickListener {
+        header.setOnClickListener {
             tapCount++
-            if (tapCount >= 5) {
+            if (tapCount >= 5 && prefs.isActivated()) {
                 startActivity(Intent(this, PinUnlockActivity::class.java))
                 tapCount = 0
             }
@@ -188,6 +210,7 @@ class LauncherActivity : BaseActivity() {
         root.addView(content)
 
         setContentView(root)
+        refreshSavedActivationIfNeeded()
     }
 
     private fun showActivationPrompt(typeFace: Typeface?, prefs: PrefsManager) {
@@ -297,7 +320,6 @@ class LauncherActivity : BaseActivity() {
 
         fun verifyCode() {
             val code = codeInput.text.toString().trim().uppercase(Locale.ROOT)
-
             if (code.isEmpty()) {
                 showStatus("Please enter an activation code.", Color.RED)
                 return
@@ -318,7 +340,8 @@ class LauncherActivity : BaseActivity() {
 
                 result.onSuccess { response ->
                     if (response.valid) {
-                        prefs.setActivated(true, code)
+                        prefs.setActivated(true, code, response.expiresAt)
+                        prefs.markActivationValidatedNow()
                         showStatus("Device activated successfully.", Color.rgb(22, 163, 74))
 
                         android.os.Handler(mainLooper).postDelayed({
@@ -349,6 +372,55 @@ class LauncherActivity : BaseActivity() {
         card.addView(activateButton)
         wrapper.addView(card)
         content.addView(wrapper)
+    }
+
+    private fun clearExpiredActivationIfNeeded() {
+        if (prefs.isActivated() && prefs.isActivationExpired()) {
+            prefs.setActivated(false)
+        }
+    }
+
+    private fun refreshSavedActivationIfNeeded() {
+        if (!prefs.isActivated()) {
+            return
+        }
+
+        if (prefs.isActivationExpired()) {
+            prefs.setActivated(false)
+            recreate()
+            return
+        }
+
+        if (!prefs.shouldValidateActivation()) {
+            return
+        }
+
+        val activationCode = prefs.getActivationCode() ?: run {
+            prefs.setActivated(false)
+            recreate()
+            return
+        }
+
+        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val apiClient = ApiClient(prefs.getServerUrl())
+
+        lifecycleScope.launch {
+            val result = apiClient.validateActivationCode(activationCode, deviceId)
+
+            result.onSuccess { response ->
+                prefs.markActivationValidatedNow()
+
+                if (response.valid) {
+                    prefs.setActivated(true, activationCode, response.expiresAt ?: prefs.getActivationExpiresAt())
+                    return@onSuccess
+                }
+
+                prefs.setActivated(false)
+                recreate()
+            }.onFailure { error ->
+                Log.w("LauncherActivity", "Could not refresh activation status", error)
+            }
+        }
     }
 
     private fun activationFailureMessage(reason: String?): String {
@@ -396,7 +468,7 @@ class LauncherActivity : BaseActivity() {
         dialog.setCancelable(true)
 
         val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#66000000")) // dim background
+            setBackgroundColor(Color.TRANSPARENT)
         }
 
         // 🔥 CARD CONTAINER
@@ -408,8 +480,7 @@ class LauncherActivity : BaseActivity() {
                 setColor(Color.WHITE)
                 cornerRadius = dp(20).toFloat()
             }
-
-            elevation = dp(12).toFloat()
+            clipToOutline = true
 
             layoutParams = FrameLayout.LayoutParams(
                 (resources.displayMetrics.widthPixels * 0.5).toInt(),
@@ -532,6 +603,7 @@ class LauncherActivity : BaseActivity() {
 
         dialog.setContentView(root)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setDimAmount(0.4f)
         dialog.show()
     }
 

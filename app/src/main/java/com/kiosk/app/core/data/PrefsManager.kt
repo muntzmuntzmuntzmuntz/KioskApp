@@ -2,10 +2,24 @@ package com.kiosk.app.core.data
 
 import android.content.Context
 import androidx.core.content.edit
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 class PrefsManager(context: Context) {
 
     private val prefs = context.getSharedPreferences("KIOSK_PREFS", Context.MODE_PRIVATE)
+    private val isoFormats = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX", Locale.US),
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX", Locale.US),
+    ).onEach { it.timeZone = TimeZone.getTimeZone("UTC") }
+
+    // ON_RENDER
+    // https://kiosk-admin-z8yc.onrender.com/api
+    // LOCAL
+    // http://localhost:3000/api
+    private var API_BASE_URL = "http://localhost:3000/api"
 
     fun saveEnabledApps(set: Set<String>) {
         prefs.edit { putStringSet("enabled_apps", set) }
@@ -38,11 +52,19 @@ class PrefsManager(context: Context) {
         return prefs.getString("wallpaper_subtitle", "To continue playing") ?: "To continue playing"
     }
 
-    fun setActivated(activated: Boolean, activationCode: String? = null) {
-        prefs.edit()
-            .putBoolean("device_activated", activated)
-            .putString("activation_code", activationCode)
-            .apply()
+    fun setActivated(activated: Boolean, activationCode: String? = null, expiresAt: String? = null) {
+        prefs.edit {
+            putBoolean("device_activated", activated)
+
+            if (activated) {
+                putString("activation_code", activationCode)
+                putString("activation_expires_at", expiresAt)
+            } else {
+                remove("activation_code")
+                remove("activation_expires_at")
+                remove("activation_last_validated_at")
+            }
+        }
     }
 
     fun isActivated(): Boolean {
@@ -53,11 +75,51 @@ class PrefsManager(context: Context) {
         return prefs.getString("activation_code", null)
     }
 
+    fun getActivationExpiresAt(): String? {
+        return prefs.getString("activation_expires_at", null)
+    }
+
+    fun markActivationValidatedNow(timestamp: Long = System.currentTimeMillis()) {
+        prefs.edit { putLong("activation_last_validated_at", timestamp) }
+    }
+
+    fun shouldValidateActivation(now: Long = System.currentTimeMillis()): Boolean {
+        val lastValidatedAt = prefs.getLong("activation_last_validated_at", 0L)
+        val oneDayMs = 24L * 60L * 60L * 1000L
+        return lastValidatedAt == 0L || now - lastValidatedAt >= oneDayMs
+    }
+
+    fun isActivationExpired(now: Long = System.currentTimeMillis()): Boolean {
+        val expiresAt = getActivationExpiresAt() ?: return false
+        val expiresAtMs = parseIsoTimestamp(expiresAt) ?: return false
+        return now >= expiresAtMs
+    }
+
+    fun expireActivationNow() {
+        if (!isActivated()) {
+            return
+        }
+
+        val expiredAt = isoFormats.first().format(java.util.Date())
+        prefs.edit { putString("activation_expires_at", expiredAt) }
+    }
+
     fun setServerUrl(url: String) {
         prefs.edit { putString("server_url", url) }
     }
 
     fun getServerUrl(): String {
-        return prefs.getString("server_url", "http://localhost:3000") ?: "http://localhost:3000"
+        return prefs.getString("server_url", API_BASE_URL) ?: API_BASE_URL
+    }
+
+    private fun parseIsoTimestamp(value: String): Long? {
+        for (format in isoFormats) {
+            try {
+                return format.parse(value)?.time
+            } catch (_: ParseException) {
+            }
+        }
+
+        return null
     }
 }

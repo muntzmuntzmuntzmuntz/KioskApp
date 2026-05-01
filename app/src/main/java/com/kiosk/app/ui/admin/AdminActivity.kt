@@ -21,6 +21,10 @@ import com.kiosk.app.core.data.PrefsManager
 import com.kiosk.app.core.model.AppItem
 import com.kiosk.app.ui.base.BaseActivity
 import com.kiosk.app.ui.launcher.LauncherActivity
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 class AdminActivity : BaseActivity() {
 
@@ -221,6 +225,7 @@ class AdminActivity : BaseActivity() {
         popup.menu.add("Change Dashboard Background")
         popup.menu.add("Update Wallpaper Texts")
         popup.menu.add("Force Quit")
+        popup.menu.add("About")
 
         popup.setOnMenuItemClickListener { item ->
             when (item.title) {
@@ -239,10 +244,129 @@ class AdminActivity : BaseActivity() {
                 "Force Quit" -> {
                     closeApp()
                 }
+                "About" -> {
+                    showAboutDialog()
+                }
             }
             true
         }
         popup.show()
+    }
+
+    private fun showAboutDialog() {
+        val dialog = android.app.Dialog(this)
+        dialog.setCancelable(true)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = dp(20).toFloat()
+            }
+        }
+
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(16))
+        }
+
+        val title = TextView(this).apply {
+            text = "About"
+            textSize = 20f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val closeButton = TextView(this).apply {
+            text = "X"
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#6B7280"))
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            setOnClickListener { dialog.dismiss() }
+        }
+
+        val versionLabel = buildAboutRow("App Version", "V1.0.0.1")
+        val activationCodeLabel = buildAboutRow(
+            "Activation Key",
+            prefs.getActivationCode() ?: "Not activated"
+        )
+        val expirationLabel = buildAboutRow(
+            "Expiration Date",
+            formatActivationExpiration(prefs.getActivationExpiresAt())
+        )
+
+        titleRow.addView(title)
+        titleRow.addView(closeButton)
+
+        card.addView(titleRow)
+        card.addView(versionLabel)
+        card.addView(activationCodeLabel)
+        card.addView(expirationLabel)
+
+        dialog.setContentView(card)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.7f).toInt().coerceAtLeast(dp(320)),
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        dialog.show()
+    }
+
+    private fun buildAboutRow(label: String, value: String): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, dp(16))
+        }
+
+        val labelView = TextView(this).apply {
+            text = label
+            textSize = 13f
+            setTextColor(Color.GRAY)
+        }
+
+        val valueView = TextView(this).apply {
+            text = value
+            textSize = 16f
+            setTextColor(Color.BLACK)
+            setTypeface(Typeface.MONOSPACE)
+            setPadding(0, dp(4), 0, 0)
+        }
+
+        row.addView(labelView)
+        row.addView(valueView)
+        return row
+    }
+
+    private fun formatActivationExpiration(value: String?): String {
+        if (value.isNullOrBlank()) {
+            return "No expiration set"
+        }
+
+        val inputFormats = listOf(
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX", Locale.US)
+        ).onEach { it.timeZone = TimeZone.getTimeZone("UTC") }
+
+        val outputFormat = SimpleDateFormat("MMMM d, yyyy h:mm a", Locale.US)
+
+        for (format in inputFormats) {
+            try {
+                val parsedDate = format.parse(value) ?: continue
+                return outputFormat.format(parsedDate)
+            } catch (_: ParseException) {
+            }
+        }
+
+        return value
     }
 
     private fun showWallpaperTextDialog() {

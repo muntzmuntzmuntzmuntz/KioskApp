@@ -33,7 +33,7 @@ class ApiClient(private val baseUrl: String) {
                 }.toString()
 
                 val request = Request.Builder()
-                    .url("$baseUrl/api/validate")
+                    .url("$baseUrl/validate")
                     .post(jsonBody.toRequestBody(jsonMediaType))
                     .build()
 
@@ -46,10 +46,13 @@ class ApiClient(private val baseUrl: String) {
                 val responseBody = response.body?.string() ?: return@withContext Result.failure(IOException("Empty response"))
                 val jsonResponse = JSONObject(responseBody)
 
+                Log.d("ApiClient", jsonResponse.toString())
+
                 val activationResponse = ActivationResponse(
                     valid = jsonResponse.getBoolean("valid"),
-                    reason = jsonResponse.optString("reason", null).takeIf { it.isNotEmpty() },
-                    assigned = jsonResponse.optBoolean("assigned", false)
+                    reason = jsonResponse.optString("reason").takeIf { it.isNotEmpty() },
+                    assigned = jsonResponse.optBoolean("assigned", false),
+                    expiresAt = jsonResponse.optString("expires_at").takeIf { it.isNotEmpty() }
                 )
 
                 Result.success(activationResponse)

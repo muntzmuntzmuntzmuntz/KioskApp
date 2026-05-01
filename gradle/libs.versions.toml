@@ -14,6 +14,8 @@ filamentAndroid = "1.17.1"
 compiler = "3.2.0-alpha11"
 playServicesMaps3d = "0.2.0"
 cardview = "1.0.0"
+okhttp = "4.12.0"
+kotlinxCoroutines = "1.8.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +38,8 @@ filament-android = { group = "com.google.ar.sceneform", name = "filament-android
 androidx-compiler = { group = "androidx.databinding", name = "compiler", version.ref = "compiler" }
 play-services-maps3d = { group = "com.google.android.gms", name = "play-services-maps3d", version.ref = "playServicesMaps3d" }
 androidx-cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

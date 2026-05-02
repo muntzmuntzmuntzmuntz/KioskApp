@@ -79,7 +79,6 @@ class AdminActivity : BaseActivity() {
         }
 
         header.addView(title)
-        // TODO: admin close button update logic
         header.addView(menuBtn);
 
         // ================= SEARCH =================
@@ -505,7 +504,6 @@ class AdminActivity : BaseActivity() {
 
         Toast.makeText(this, "PIN updated", Toast.LENGTH_SHORT).show()
     }
-
     private val pickImageLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
 

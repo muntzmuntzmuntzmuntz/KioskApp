@@ -13,7 +13,13 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-class ApiClient(private val baseUrl: String) {
+class ApiClient {
+
+    companion object {
+        // For development, point this to your local server, e.g. http://localhost:3000/api
+        // For prod, https://kiosk-admin-z8yc.onrender.com/api
+        private const val BASE_SERVER_URL = "http://localhost:3000/api"
+    }
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -23,44 +29,70 @@ class ApiClient(private val baseUrl: String) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    suspend fun validateActivationCode(code: String, deviceId: String): Result<ActivationResponse> {
+    suspend fun activateDevice(code: String, deviceId: String): Result<ActivationResponse> {
         return withContext(Dispatchers.IO) {
             try {
-                val requestBody = ActivationRequest(code, deviceId)
+                val requestBody = ActivationRequest(code = code, deviceId = deviceId)
+                val activationUrl = "$BASE_SERVER_URL/validate"
+
                 val jsonBody = JSONObject().apply {
                     put("code", requestBody.code)
-                    put("device_id", requestBody.device_id)
+                    put("deviceId", requestBody.deviceId)
                 }.toString()
 
                 val request = Request.Builder()
-                    .url("$baseUrl/validate")
+                    .url(activationUrl)
                     .post(jsonBody.toRequestBody(jsonMediaType))
                     .build()
+                Log.d("Api", jsonBody)
 
-                val response = client.newCall(request).execute()
+                executeActivationRequest(request)
+            } catch (e: Exception) {
+                Log.e("ApiClient", "Error activating device", e)
+                Result.failure(e)
+            }
+        }
+    }
 
-                if (!response.isSuccessful) {
-                    return@withContext Result.failure(IOException("HTTP ${response.code}"))
-                }
+    suspend fun validateActivationCode(code: String, deviceId: String): Result<ActivationResponse> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val validateUrl = "$BASE_SERVER_URL/validate?code=$code&deviceId=$deviceId"
 
-                val responseBody = response.body?.string() ?: return@withContext Result.failure(IOException("Empty response"))
-                val jsonResponse = JSONObject(responseBody)
+                val request = Request.Builder()
+                    .url(validateUrl)
+                    .get()
+                    .build()
 
-                Log.d("ApiClient", jsonResponse.toString())
-
-                val activationResponse = ActivationResponse(
-                    valid = jsonResponse.getBoolean("valid"),
-                    reason = jsonResponse.optString("reason").takeIf { it.isNotEmpty() },
-                    assigned = jsonResponse.optBoolean("assigned", false),
-                    expiresAt = jsonResponse.optString("expires_at").takeIf { it.isNotEmpty() }
-                )
-
-                Result.success(activationResponse)
-
+                executeActivationRequest(request)
             } catch (e: Exception) {
                 Log.e("ApiClient", "Error validating activation code", e)
                 Result.failure(e)
             }
         }
+    }
+
+    private fun executeActivationRequest(request: Request): Result<ActivationResponse> {
+        Log.d("Api", request.toString())
+        val response = client.newCall(request).execute()
+
+        if (!response.isSuccessful) {
+            return Result.failure(IOException("HTTP ${response.code}"))
+        }
+
+        val responseBody = response.body?.string() ?: return Result.failure(IOException("Empty response"))
+        val jsonResponse = JSONObject(responseBody)
+
+        Log.d("ApiClient", jsonResponse.toString())
+
+        val activationResponse = ActivationResponse(
+            valid = jsonResponse.getBoolean("valid"),
+            code = jsonResponse.getString("code").takeIf { it.isNotEmpty() },
+            reason = jsonResponse.optString("reason").takeIf { it.isNotEmpty() },
+            assigned = jsonResponse.optBoolean("assigned", false),
+            expiresAt = jsonResponse.optString("expiresAt").takeIf { it.isNotEmpty() }
+        )
+
+        return Result.success(activationResponse)
     }
 }

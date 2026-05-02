@@ -4,22 +4,18 @@ import android.content.Context
 import androidx.core.content.edit
 import java.text.ParseException
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
 class PrefsManager(context: Context) {
 
     private val prefs = context.getSharedPreferences("KIOSK_PREFS", Context.MODE_PRIVATE)
+    private val localDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val isoFormats = listOf(
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX", Locale.US),
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX", Locale.US),
     ).onEach { it.timeZone = TimeZone.getTimeZone("UTC") }
-
-    // ON_RENDER
-    // https://kiosk-admin-z8yc.onrender.com/api
-    // LOCAL
-    // http://localhost:3000/api
-    private var API_BASE_URL = "http://localhost:3000/api"
 
     fun saveEnabledApps(set: Set<String>) {
         prefs.edit { putStringSet("enabled_apps", set) }
@@ -62,6 +58,7 @@ class PrefsManager(context: Context) {
             } else {
                 remove("activation_code")
                 remove("activation_expires_at")
+                remove("activation_last_validated_date")
                 remove("activation_last_validated_at")
             }
         }
@@ -79,14 +76,17 @@ class PrefsManager(context: Context) {
         return prefs.getString("activation_expires_at", null)
     }
 
-    fun markActivationValidatedNow(timestamp: Long = System.currentTimeMillis()) {
-        prefs.edit { putLong("activation_last_validated_at", timestamp) }
+    fun markActivationValidatedToday(now: Long = System.currentTimeMillis()) {
+        prefs.edit {
+            putString("activation_last_validated_date", localDateFormat.format(Date(now)))
+            remove("activation_last_validated_at")
+        }
     }
 
     fun shouldValidateActivation(now: Long = System.currentTimeMillis()): Boolean {
-        val lastValidatedAt = prefs.getLong("activation_last_validated_at", 0L)
-        val oneDayMs = 24L * 60L * 60L * 1000L
-        return lastValidatedAt == 0L || now - lastValidatedAt >= oneDayMs
+        val lastValidatedDate = prefs.getString("activation_last_validated_date", null)
+        val today = localDateFormat.format(Date(now))
+        return lastValidatedDate != today
     }
 
     fun isActivationExpired(now: Long = System.currentTimeMillis()): Boolean {
@@ -102,14 +102,6 @@ class PrefsManager(context: Context) {
 
         val expiredAt = isoFormats.first().format(java.util.Date())
         prefs.edit { putString("activation_expires_at", expiredAt) }
-    }
-
-    fun setServerUrl(url: String) {
-        prefs.edit { putString("server_url", url) }
-    }
-
-    fun getServerUrl(): String {
-        return prefs.getString("server_url", API_BASE_URL) ?: API_BASE_URL
     }
 
     private fun parseIsoTimestamp(value: String): Long? {
